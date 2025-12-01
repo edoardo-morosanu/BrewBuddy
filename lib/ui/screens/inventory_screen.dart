@@ -5,6 +5,7 @@ import 'package:brewbuddy/utils/responsive.dart';
 import 'package:brewbuddy/services/inventory_service.dart';
 import 'package:brewbuddy/services/house_service.dart';
 
+import '../../models/drink_item.dart';
 import 'barcode_scanner_screen.dart';
 import 'drink_detail_screen.dart';
 
@@ -30,7 +31,7 @@ class _InventoryScreenState extends State<InventoryScreen>
   bool _isSearching = false;
   String _searchQuery = '';
   String? _houseId;
-  List<_DrinkItem> _drinks = [];
+  List<DrinkItem> _drinks = [];
 
   @override
   void initState() {
@@ -107,14 +108,47 @@ class _InventoryScreenState extends State<InventoryScreen>
         setState(() {
           _drinks = items.map((item) {
             final quantity = (item['quantity'] as num?)?.toInt() ?? 0;
-            return _DrinkItem(
+            return DrinkItem(
               name: item['product_name']?.toString() ?? 'Unknown',
               quantity: quantity,
               unit: 'units', // Default unit for now
-              addedBy: 'Member', // Placeholder until we link profiles
+              addedBy:
+                  item['creator_profile']?['full_name']?.toString() ??
+                  'Unknown',
               category: 'Drink', // Placeholder or infer from name?
               lowStock: quantity < 5,
               imageUrl: item['image_url']?.toString(),
+              history:
+                  (item['inventory_history'] as List<dynamic>?)?.map((h) {
+                    final actionStr = h['action']?.toString() ?? 'added';
+                    HistoryAction action;
+                    switch (actionStr) {
+                      case 'removed':
+                        action = HistoryAction.removed;
+                        break;
+                      case 'restocked':
+                        action = HistoryAction.restocked;
+                        break;
+                      case 'adjusted':
+                        action = HistoryAction.adjusted;
+                        break;
+                      default:
+                        action = HistoryAction.added;
+                    }
+
+                    final profile = h['profiles'] as Map<String, dynamic>?;
+                    final userName =
+                        profile?['full_name']?.toString() ?? 'Unknown User';
+
+                    return HistoryEntry(
+                      date: DateTime.parse(h['created_at']),
+                      action: action,
+                      user: userName,
+                      amount: (h['amount'] as num?)?.toInt() ?? 0,
+                      note: h['note']?.toString(),
+                    );
+                  }).toList() ??
+                  [],
             );
           }).toList();
         });
@@ -528,7 +562,7 @@ class _DrinkCard extends StatelessWidget {
     required this.textTheme,
   });
 
-  final _DrinkItem drink;
+  final DrinkItem drink;
   final ColorScheme colorScheme;
   final TextTheme textTheme;
 
@@ -562,13 +596,7 @@ class _DrinkCard extends StatelessWidget {
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (context) => DrinkDetailScreen(
-                      drinkName: drink.name,
-                      quantity: drink.quantity,
-                      unit: drink.unit,
-                      category: drink.category,
-                      lowStock: drink.lowStock,
-                    ),
+                    builder: (context) => DrinkDetailScreen(drink: drink),
                   ),
                 );
               },
@@ -646,19 +674,6 @@ class _DrinkCard extends StatelessWidget {
                                     color: colorScheme.primary,
                                     fontWeight: FontWeight.w600,
                                   ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Icon(
-                                Icons.person_outline_rounded,
-                                size: 14,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                drink.addedBy,
-                                style: textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
                                 ),
                               ),
                             ],
@@ -753,24 +768,4 @@ class _DrinkCard extends StatelessWidget {
         return Icons.local_cafe_rounded;
     }
   }
-}
-
-class _DrinkItem {
-  const _DrinkItem({
-    required this.name,
-    required this.quantity,
-    required this.unit,
-    required this.addedBy,
-    required this.category,
-    required this.lowStock,
-    this.imageUrl,
-  });
-
-  final String name;
-  final int quantity;
-  final String unit;
-  final String addedBy;
-  final String category;
-  final bool lowStock;
-  final String? imageUrl;
 }

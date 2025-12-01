@@ -3,21 +3,12 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:brewbuddy/utils/responsive.dart';
 
-class DrinkDetailScreen extends StatefulWidget {
-  const DrinkDetailScreen({
-    super.key,
-    required this.drinkName,
-    required this.quantity,
-    required this.unit,
-    required this.category,
-    required this.lowStock,
-  });
+import '../../models/drink_item.dart';
 
-  final String drinkName;
-  final int quantity;
-  final String unit;
-  final String category;
-  final bool lowStock;
+class DrinkDetailScreen extends StatefulWidget {
+  const DrinkDetailScreen({super.key, required this.drink});
+
+  final DrinkItem drink;
 
   @override
   State<DrinkDetailScreen> createState() => _DrinkDetailScreenState();
@@ -26,50 +17,6 @@ class DrinkDetailScreen extends StatefulWidget {
 class _DrinkDetailScreenState extends State<DrinkDetailScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-
-  // Mock history data
-  final List<_HistoryItem> _history = [
-    _HistoryItem(
-      action: 'Added',
-      quantity: 5,
-      unit: 'bottles',
-      user: 'John Doe',
-      avatar: '👨',
-      timestamp: DateTime.now().subtract(const Duration(hours: 2)),
-    ),
-    _HistoryItem(
-      action: 'Consumed',
-      quantity: 2,
-      unit: 'bottles',
-      user: 'Sarah Smith',
-      avatar: '👩',
-      timestamp: DateTime.now().subtract(const Duration(hours: 5)),
-    ),
-    _HistoryItem(
-      action: 'Added',
-      quantity: 3,
-      unit: 'bottles',
-      user: 'Mike Johnson',
-      avatar: '👨‍🦰',
-      timestamp: DateTime.now().subtract(const Duration(days: 1)),
-    ),
-    _HistoryItem(
-      action: 'Consumed',
-      quantity: 1,
-      unit: 'bottle',
-      user: 'John Doe',
-      avatar: '👨',
-      timestamp: DateTime.now().subtract(const Duration(days: 1, hours: 3)),
-    ),
-    _HistoryItem(
-      action: 'Added',
-      quantity: 6,
-      unit: 'bottles',
-      user: 'Emma Wilson',
-      avatar: '👩‍🦰',
-      timestamp: DateTime.now().subtract(const Duration(days: 2)),
-    ),
-  ];
 
   @override
   void initState() {
@@ -129,8 +76,11 @@ class _DrinkDetailScreenState extends State<DrinkDetailScreen>
   }
 
   Widget _buildAppBar(ColorScheme colorScheme, TextTheme textTheme) {
+    final hasImage =
+        widget.drink.imageUrl != null && widget.drink.imageUrl!.isNotEmpty;
+
     return SliverAppBar(
-      expandedHeight: 120,
+      expandedHeight: hasImage ? 300 : 120,
       floating: false,
       pinned: true,
       backgroundColor: colorScheme.surface,
@@ -149,15 +99,53 @@ class _DrinkDetailScreenState extends State<DrinkDetailScreen>
         title: FadeTransition(
           opacity: _controller,
           child: Text(
-            widget.drinkName,
+            widget.drink.name,
             style: textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.w800,
-              color: colorScheme.onSurface,
+              color: hasImage ? Colors.white : colorScheme.onSurface,
+              shadows: hasImage
+                  ? [
+                      Shadow(
+                        color: Colors.black.withValues(alpha: 0.5),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
         ),
+        background: hasImage
+            ? Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.network(
+                    widget.drink.imageUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(color: colorScheme.surfaceContainerHigh);
+                    },
+                  ),
+                  // Gradient overlay for text readability
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.3),
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.7),
+                        ],
+                        stops: const [0.0, 0.5, 1.0],
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            : null,
       ),
     );
   }
@@ -180,10 +168,10 @@ class _DrinkDetailScreenState extends State<DrinkDetailScreen>
                 color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.8),
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                  color: widget.lowStock
+                  color: widget.drink.lowStock
                       ? colorScheme.error.withValues(alpha: 0.3)
                       : colorScheme.outlineVariant.withValues(alpha: 0.3),
-                  width: widget.lowStock ? 2 : 1,
+                  width: widget.drink.lowStock ? 2 : 1,
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -194,12 +182,13 @@ class _DrinkDetailScreenState extends State<DrinkDetailScreen>
                 ],
               ),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
                       Container(
-                        width: 64,
-                        height: 64,
+                        width: 56,
+                        height: 56,
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
@@ -211,7 +200,7 @@ class _DrinkDetailScreenState extends State<DrinkDetailScreen>
                         ),
                         child: Icon(
                           Icons.local_drink_rounded,
-                          size: 32,
+                          size: 28,
                           color: colorScheme.primary,
                         ),
                       ),
@@ -221,71 +210,82 @@ class _DrinkDetailScreenState extends State<DrinkDetailScreen>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              widget.category,
-                              style: textTheme.bodyMedium?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                                fontWeight: FontWeight.w500,
+                              widget.drink.category.toUpperCase(),
+                              style: textTheme.labelSmall?.copyWith(
+                                color: colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.0,
                               ),
                             ),
                             const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Text(
-                                  '${widget.quantity}',
-                                  style: textTheme.displaySmall?.copyWith(
-                                    fontWeight: FontWeight.w900,
-                                    color: widget.lowStock
-                                        ? colorScheme.error
-                                        : colorScheme.primary,
-                                    height: 1,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  widget.unit,
-                                  style: textTheme.titleLarge?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
+                            Text(
+                              'Added by ${widget.drink.addedBy}',
+                              style: textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
                             ),
                           ],
                         ),
                       ),
                     ],
                   ),
-                  if (widget.lowStock) ...[
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
+                  const SizedBox(height: 24),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '${widget.drink.quantity}',
+                        style: textTheme.displayMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          color: widget.drink.lowStock
+                              ? colorScheme.error
+                              : colorScheme.primary,
+                          height: 1,
+                        ),
                       ),
-                      decoration: BoxDecoration(
-                        color: colorScheme.errorContainer,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.warning_amber_rounded,
-                            size: 18,
-                            color: colorScheme.error,
+                      const SizedBox(width: 8),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Text(
+                          widget.drink.unit,
+                          style: textTheme.titleLarge?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Low Stock',
-                            style: textTheme.labelMedium?.copyWith(
-                              color: colorScheme.error,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ],
+                      const Spacer(),
+                      if (widget.drink.lowStock)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colorScheme.errorContainer,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.warning_amber_rounded,
+                                size: 18,
+                                color: colorScheme.error,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Low Stock',
+                                style: textTheme.labelMedium?.copyWith(
+                                  color: colorScheme.error,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -315,7 +315,7 @@ class _DrinkDetailScreenState extends State<DrinkDetailScreen>
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
-            '${_history.length}',
+            '${widget.drink.history.length}',
             style: textTheme.labelSmall?.copyWith(
               color: colorScheme.primary,
               fontWeight: FontWeight.w700,
@@ -349,16 +349,16 @@ class _DrinkDetailScreenState extends State<DrinkDetailScreen>
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: _HistoryCard(
-                    item: _history[index],
+                    item: widget.drink.history[index],
                     colorScheme: colorScheme,
                     textTheme: textTheme,
-                    isLast: index == _history.length - 1,
+                    isLast: index == widget.drink.history.length - 1,
                   ),
                 ),
               ),
             ),
           );
-        }, childCount: _history.length),
+        }, childCount: widget.drink.history.length),
       ),
     );
   }
@@ -366,149 +366,99 @@ class _DrinkDetailScreenState extends State<DrinkDetailScreen>
 
 class _HistoryCard extends StatelessWidget {
   const _HistoryCard({
+    super.key,
     required this.item,
+    required this.isLast,
     required this.colorScheme,
     required this.textTheme,
-    required this.isLast,
   });
 
-  final _HistoryItem item;
+  final HistoryEntry item;
   final ColorScheme colorScheme;
   final TextTheme textTheme;
   final bool isLast;
 
   @override
   Widget build(BuildContext context) {
-    final isAdded = item.action == 'Added';
-    final actionColor = isAdded ? colorScheme.primary : colorScheme.tertiary;
-
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Column(
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: 12,
+              height: 12,
               decoration: BoxDecoration(
-                color: actionColor.withValues(alpha: 0.15),
+                color: _getActionColor(),
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: actionColor.withValues(alpha: 0.3),
-                  width: 2,
-                ),
-              ),
-              child: Icon(
-                isAdded ? Icons.add_rounded : Icons.remove_rounded,
-                color: actionColor,
-                size: 20,
+                border: Border.all(color: colorScheme.surface, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: _getActionColor().withValues(alpha: 0.3),
+                    blurRadius: 4,
+                    spreadRadius: 1,
+                  ),
+                ],
               ),
             ),
             if (!isLast)
               Container(
                 width: 2,
                 height: 60,
-                margin: const EdgeInsets.symmetric(vertical: 4),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      colorScheme.outlineVariant.withValues(alpha: 0.5),
-                      colorScheme.outlineVariant.withValues(alpha: 0.1),
-                    ],
-                  ),
-                ),
+                color: colorScheme.outlineVariant.withValues(alpha: 0.3),
               ),
           ],
         ),
         const SizedBox(width: 16),
         Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHigh.withValues(
-                    alpha: 0.8,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: colorScheme.outlineVariant.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: colorScheme.outlineVariant.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        Text(item.avatar, style: const TextStyle(fontSize: 20)),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                item.user,
-                                style: textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: colorScheme.onSurface,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                _formatTimestamp(item.timestamp),
-                                style: textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: actionColor.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                isAdded ? '+' : '-',
-                                style: textTheme.labelLarge?.copyWith(
-                                  color: actionColor,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              Text(
-                                '${item.quantity}',
-                                style: textTheme.labelLarge?.copyWith(
-                                  color: actionColor,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
                     Text(
-                      '${item.action} ${item.quantity} ${item.unit}',
-                      style: textTheme.bodyMedium?.copyWith(
+                      _getActionText(),
+                      style: textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: _getActionColor(),
+                      ),
+                    ),
+                    Text(
+                      _formatDate(item.date),
+                      style: textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
                 ),
-              ),
+                const SizedBox(height: 4),
+                Text(
+                  '${item.user} • ${item.amount} units',
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                if (item.note != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    item.note!,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ),
@@ -516,36 +466,44 @@ class _HistoryCard extends StatelessWidget {
     );
   }
 
-  String _formatTimestamp(DateTime timestamp) {
-    final now = DateTime.now();
-    final difference = now.difference(timestamp);
+  Color _getActionColor() {
+    switch (item.action) {
+      case HistoryAction.added:
+      case HistoryAction.restocked:
+        return colorScheme.primary;
+      case HistoryAction.removed:
+        return colorScheme.error;
+      case HistoryAction.adjusted:
+        return colorScheme.tertiary;
+    }
+  }
 
-    if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}m ago';
-    } else if (difference.inHours < 24) {
+  String _getActionText() {
+    switch (item.action) {
+      case HistoryAction.added:
+        return 'Added Stock';
+      case HistoryAction.restocked:
+        return 'Restocked';
+      case HistoryAction.removed:
+        return 'Consumed';
+      case HistoryAction.adjusted:
+        return 'Adjusted';
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+
+    if (difference.inDays == 0) {
+      if (difference.inHours == 0) {
+        return '${difference.inMinutes}m ago';
+      }
       return '${difference.inHours}h ago';
     } else if (difference.inDays < 7) {
       return '${difference.inDays}d ago';
     } else {
-      return '${timestamp.day}/${timestamp.month}/${timestamp.year}';
+      return '${date.day}/${date.month}/${date.year}';
     }
   }
-}
-
-class _HistoryItem {
-  const _HistoryItem({
-    required this.action,
-    required this.quantity,
-    required this.unit,
-    required this.user,
-    required this.avatar,
-    required this.timestamp,
-  });
-
-  final String action;
-  final int quantity;
-  final String unit;
-  final String user;
-  final String avatar;
-  final DateTime timestamp;
 }

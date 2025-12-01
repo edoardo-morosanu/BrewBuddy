@@ -3,6 +3,9 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'main_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   final Widget nextScreen;
@@ -81,15 +84,20 @@ class _SplashScreenState extends State<SplashScreen>
     }
 
     // 4. Wait a bit, then fade out and navigate
-    await Future.delayed(const Duration(milliseconds: 800));
+    await Future.delayed(const Duration(milliseconds: 1800));
     if (mounted) {
       await _fadeOutController.forward();
       if (mounted) {
+        final session = Supabase.instance.client.auth.currentSession;
+        final targetScreen = session != null
+            ? const MainScreen(initialIndex: 1)
+            : widget.nextScreen;
+
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
             pageBuilder: (context, animation, secondaryAnimation) =>
-                widget.nextScreen,
-            transitionDuration: const Duration(milliseconds: 500),
+                targetScreen,
+            transitionDuration: const Duration(milliseconds: 800),
             transitionsBuilder:
                 (context, animation, secondaryAnimation, child) {
                   return FadeTransition(opacity: animation, child: child);
@@ -413,7 +421,6 @@ class MorphingBubblePainter extends CustomPainter {
   final Color primaryColor;
   final Color secondaryColor;
   final Color tertiaryColor;
-  final math.Random _random = math.Random(42); // Fixed seed for consistency
 
   MorphingBubblePainter({
     required this.animationValue,
