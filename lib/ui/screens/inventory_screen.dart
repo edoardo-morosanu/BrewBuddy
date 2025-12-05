@@ -109,6 +109,8 @@ class _InventoryScreenState extends State<InventoryScreen>
           _drinks = items.map((item) {
             final quantity = (item['quantity'] as num?)?.toInt() ?? 0;
             return DrinkItem(
+              id: item['id']?.toString() ?? '',
+              barcode: item['barcode']?.toString() ?? '',
               name: item['product_name']?.toString() ?? 'Unknown',
               quantity: quantity,
               unit: 'units', // Default unit for now

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:brewbuddy/utils/responsive.dart';
 
 import '../../models/drink_item.dart';
+import '../../services/inventory_service.dart';
 
 class DrinkDetailScreen extends StatefulWidget {
   const DrinkDetailScreen({super.key, required this.drink});
@@ -17,21 +18,71 @@ class DrinkDetailScreen extends StatefulWidget {
 class _DrinkDetailScreenState extends State<DrinkDetailScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+  late String _drinkName;
 
   @override
   void initState() {
     super.initState();
+    _drinkName = widget.drink.name;
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-    _controller.forward();
+      duration: const Duration(milliseconds: 800),
+    )..forward();
   }
 
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<void> _showEditDialog() async {
+    final controller = TextEditingController(text: _drinkName);
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Product Name'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'Product Name',
+            hintText: 'Enter new name',
+          ),
+          autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (newName != null && newName.isNotEmpty && newName != _drinkName) {
+      try {
+        await InventoryService().updateProductName(widget.drink.id, newName);
+        if (mounted) {
+          setState(() {
+            _drinkName = newName;
+          });
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Product name updated')));
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error updating name: $e')));
+        }
+      }
+    }
   }
 
   @override
@@ -94,12 +145,24 @@ class _DrinkDetailScreenState extends State<DrinkDetailScreen>
           ),
         ),
       ),
+      actions: [
+        IconButton(
+          onPressed: _showEditDialog,
+          icon: const Icon(Icons.edit_rounded),
+          style: IconButton.styleFrom(
+            backgroundColor: colorScheme.surfaceContainerHighest.withValues(
+              alpha: 0.5,
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+      ],
       flexibleSpace: FlexibleSpaceBar(
         titlePadding: const EdgeInsets.only(left: 16, bottom: 16, right: 16),
         title: FadeTransition(
           opacity: _controller,
           child: Text(
-            widget.drink.name,
+            _drinkName,
             style: textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.w800,
               color: hasImage ? Colors.white : colorScheme.onSurface,

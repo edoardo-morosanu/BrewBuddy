@@ -1,7 +1,11 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:brewbuddy/services/auth_service.dart';
+import 'package:brewbuddy/ui/screens/welcome_screen.dart';
 import 'package:brewbuddy/utils/responsive.dart';
+import 'package:brewbuddy/utils/theme_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -12,20 +16,20 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _notificationsEnabled = true;
-  bool _darkModeEnabled = false;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
+    final themeProvider = Provider.of<ThemeProvider>(context);
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
       body: CustomScrollView(
         slivers: [
           _buildAppBar(colorScheme, textTheme),
-          _buildSettingsList(colorScheme, textTheme),
+          _buildSettingsList(colorScheme, textTheme, theme, themeProvider),
         ],
       ),
     );
@@ -55,7 +59,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildSettingsList(ColorScheme colorScheme, TextTheme textTheme) {
+  Widget _buildSettingsList(
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+    ThemeData theme,
+    ThemeProvider themeProvider,
+  ) {
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
@@ -136,10 +145,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   textTheme: textTheme,
 
                   trailing: Switch(
-                    value: _darkModeEnabled,
+                    value: theme.brightness == Brightness.dark,
 
                     onChanged: (value) {
-                      setState(() => _darkModeEnabled = value);
+                      themeProvider.toggleTheme(value);
                     },
                   ),
                 ),
@@ -277,10 +286,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                   subtitle: 'Sign out of your account',
 
-                  onTap: () {
-                    // TODO: Implement logout
-
-                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  onTap: () async {
+                    await AuthService().signOut();
+                    if (context.mounted) {
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(
+                          builder: (_) => const WelcomeScreen(),
+                        ),
+                        (route) => false,
+                      );
+                    }
                   },
 
                   colorScheme: colorScheme,
@@ -297,9 +312,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                   subtitle: 'Permanently remove your account',
 
-                  onTap: () {
-                    // TODO: Show confirmation dialog
-                  },
+                  onTap: () => _showDeleteAccountDialog(context),
 
                   colorScheme: colorScheme,
 
@@ -313,6 +326,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _showDeleteAccountDialog(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Account'),
+        content: const Text(
+          'Are you sure you want to delete your account? This action cannot be undone and all your data will be lost.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      try {
+        await AuthService().deleteAccount();
+        if (context.mounted) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+            (route) => false,
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error deleting account: $e')));
+        }
+      }
+    }
   }
 
   Widget _buildSectionHeader(

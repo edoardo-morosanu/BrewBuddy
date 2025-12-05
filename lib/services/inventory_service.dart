@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'notification_service.dart';
 
 class InventoryService {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -52,6 +53,16 @@ class InventoryService {
           })
           .eq('id', existing['id']);
 
+      // Check for low stock
+      if (actualNewQuantity < 5 && actualNewQuantity > 0) {
+        await NotificationService().showNotification(
+          id: existing['id'].hashCode,
+          title: 'Low Stock Alert',
+          body:
+              '$name is running low ($actualNewQuantity left). Time to restock!',
+        );
+      }
+
       // Record history
       if (actualChange != 0) {
         await _supabase.from('inventory_history').insert({
@@ -78,6 +89,14 @@ class InventoryService {
           })
           .select()
           .single();
+
+      if (quantityChange < 5 && quantityChange > 0) {
+        await NotificationService().showNotification(
+          id: newItem['id'].hashCode,
+          title: 'Low Stock Alert',
+          body: '$name is running low ($quantityChange left). Time to restock!',
+        );
+      }
 
       // Record history
       await _supabase.from('inventory_history').insert({
@@ -157,5 +176,16 @@ class InventoryService {
       print('Error fetching inventory: $e');
       return [];
     }
+  }
+
+  // Update product name
+  Future<void> updateProductName(String itemId, String newName) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) throw Exception('User not logged in');
+
+    await _supabase
+        .from('inventory_items')
+        .update({'product_name': newName})
+        .eq('id', itemId);
   }
 }

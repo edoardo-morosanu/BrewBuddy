@@ -84,7 +84,9 @@ class _ProfileScreenState extends State<ProfileScreen>
           FilledButton(
             onPressed: () async {
               try {
-                await AuthService().updateProfile(name: nameController.text.trim());
+                await AuthService().updateProfile(
+                  name: nameController.text.trim(),
+                );
                 if (mounted) {
                   Navigator.pop(context);
                   _fetchProfile(); // Refresh
@@ -94,9 +96,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                 }
               } catch (e) {
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: $e')),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('Error: $e')));
                 }
               }
             },
@@ -142,9 +144,9 @@ class _ProfileScreenState extends State<ProfileScreen>
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error: $e')));
         }
       }
     }
@@ -309,7 +311,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                           onPressed: _editProfile,
                           icon: const Icon(Icons.edit_rounded),
                           style: IconButton.styleFrom(
-                            backgroundColor: colorScheme.surface.withValues(alpha: 0.5),
+                            backgroundColor: colorScheme.surface.withValues(
+                              alpha: 0.5,
+                            ),
                           ),
                         ),
                       ],

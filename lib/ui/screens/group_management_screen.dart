@@ -30,6 +30,8 @@ class _GroupManagementScreenState extends State<GroupManagementScreen>
   String? _houseId;
   bool _isCurrentUserAdmin = false;
   List<_Member> _members = [];
+  int _totalItems = 0;
+  int _itemsThisMonth = 0;
 
   @override
   void initState() {
@@ -81,7 +83,33 @@ class _GroupManagementScreenState extends State<GroupManagementScreen>
         );
         print('DEBUG: membersData: $membersData');
 
+        // Fetch item counts
+        final itemsResponse = await Supabase.instance.client
+            .from('inventory_items')
+            .select('created_by')
+            .eq('house_id', house['id']);
+
+        final itemCounts = <String, int>{};
+        for (final item in itemsResponse) {
+          final creator = item['created_by']?.toString();
+          if (creator != null) {
+            itemCounts[creator] = (itemCounts[creator] ?? 0) + 1;
+          }
+        }
+
+        // Fetch this month's activity
+        final now = DateTime.now();
+        final startOfMonth = DateTime(now.year, now.month, 1).toIso8601String();
+
+        final historyResponse = await Supabase.instance.client
+            .from('inventory_history')
+            .select('id, inventory_items!inner(house_id)')
+            .eq('inventory_items.house_id', house['id'])
+            .gte('created_at', startOfMonth);
+
         setState(() {
+          _totalItems = itemsResponse.length;
+          _itemsThisMonth = historyResponse.length;
           final membersList = membersData.map((data) {
             print('DEBUG: processing member: $data');
             final profile = data['profiles'] != null
@@ -106,7 +134,7 @@ class _GroupManagementScreenState extends State<GroupManagementScreen>
               joinedDate: _formatDate(data['joined_at']?.toString()),
               isAdmin: isAdmin,
               isHead: isHead,
-              itemsAdded: 0, // Placeholder
+              itemsAdded: itemCounts[userId] ?? 0,
             );
           }).toList();
 
@@ -538,7 +566,7 @@ class _GroupManagementScreenState extends State<GroupManagementScreen>
                         _buildStatItem(
                           icon: Icons.inventory_2_rounded,
                           label: 'Items',
-                          value: '42',
+                          value: '$_totalItems',
                           colorScheme: colorScheme,
                           theme: theme,
                         ),
@@ -550,7 +578,7 @@ class _GroupManagementScreenState extends State<GroupManagementScreen>
                         _buildStatItem(
                           icon: Icons.shopping_cart_rounded,
                           label: 'This Month',
-                          value: '127',
+                          value: '$_itemsThisMonth',
                           colorScheme: colorScheme,
                           theme: theme,
                         ),
@@ -1126,12 +1154,20 @@ class _GroupManagementScreenState extends State<GroupManagementScreen>
                       ),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Center(
-                      child: Text(
-                        member.avatar,
-                        style: const TextStyle(fontSize: 24),
-                      ),
-                    ),
+                    child: member.avatar.startsWith('http')
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.network(
+                              member.avatar,
+                              fit: BoxFit.cover,
+                            ),
+                          )
+                        : Center(
+                            child: Text(
+                              member.avatar,
+                              style: const TextStyle(fontSize: 24),
+                            ),
+                          ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(

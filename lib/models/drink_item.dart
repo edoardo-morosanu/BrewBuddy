@@ -1,5 +1,7 @@
 class DrinkItem {
   const DrinkItem({
+    required this.id,
+    required this.barcode,
     required this.name,
     required this.quantity,
     required this.unit,
@@ -10,6 +12,8 @@ class DrinkItem {
     this.history = const [],
   });
 
+  final String id;
+  final String barcode;
   final String name;
   final int quantity;
   final String unit;
