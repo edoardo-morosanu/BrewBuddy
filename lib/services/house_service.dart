@@ -141,15 +141,9 @@ class HouseService {
     final user = _supabase.auth.currentUser;
     if (user == null) throw Exception('User not logged in');
 
-    // Verify admin status
-    final member = await _supabase
-        .from('house_members')
-        .select('role')
-        .eq('house_id', houseId)
-        .eq('user_id', user.id)
-        .single();
+    final role = await _getMemberRole(houseId, user.id);
 
-    if (member['role'] != 'head') {
+    if (role != 'head') {
       throw Exception('Only the Head of House can delete the house');
     }
 
@@ -164,36 +158,10 @@ class HouseService {
     final currentUser = _supabase.auth.currentUser;
     if (currentUser == null) throw Exception('User not logged in');
 
-    // Verify requester is admin or head
-    final requester = await _supabase
-        .from('house_members')
-        .select('role')
-        .eq('house_id', houseId)
-        .eq('user_id', currentUser.id)
-        .single();
+    final requesterRole = await _getMemberRole(houseId, currentUser.id);
+    final targetRole = await _getMemberRole(houseId, userId);
 
-    final requesterRole = requester['role'];
-
-    if (requesterRole != 'admin' && requesterRole != 'head') {
-      throw Exception('Only admins or the head can kick members');
-    }
-
-    // Check target role
-    final target = await _supabase
-        .from('house_members')
-        .select('role')
-        .eq('house_id', houseId)
-        .eq('user_id', userId)
-        .single();
-
-    final targetRole = target['role'];
-
-    // Admins cannot kick other admins or the head
-    if (requesterRole == 'admin') {
-      if (targetRole == 'admin' || targetRole == 'head') {
-        throw Exception('Admins cannot kick other admins or the head');
-      }
-    }
+    _validateKickPermissions(requesterRole, targetRole);
 
     await _supabase
         .from('house_members')
@@ -202,19 +170,26 @@ class HouseService {
         .eq('user_id', userId);
   }
 
+  void _validateKickPermissions(String requesterRole, String targetRole) {
+    final isAuthorized = requesterRole == 'admin' || requesterRole == 'head';
+    if (!isAuthorized) {
+      throw Exception('Only admins or the head can kick members');
+    }
+
+    if (requesterRole == 'admin') {
+      if (targetRole == 'admin' || targetRole == 'head') {
+        throw Exception('Admins cannot kick other admins or the head');
+      }
+    }
+  }
+
   Future<void> promoteToAdmin(String houseId, String userId) async {
     final currentUser = _supabase.auth.currentUser;
     if (currentUser == null) throw Exception('User not logged in');
 
-    // Verify requester is admin or head
-    final requester = await _supabase
-        .from('house_members')
-        .select('role')
-        .eq('house_id', houseId)
-        .eq('user_id', currentUser.id)
-        .single();
+    final requesterRole = await _getMemberRole(houseId, currentUser.id);
 
-    if (requester['role'] != 'admin' && requester['role'] != 'head') {
+    if (requesterRole != 'admin' && requesterRole != 'head') {
       throw Exception('Only admins or the head can promote members');
     }
 
@@ -229,15 +204,9 @@ class HouseService {
     final currentUser = _supabase.auth.currentUser;
     if (currentUser == null) throw Exception('User not logged in');
 
-    // Verify requester is Head
-    final requester = await _supabase
-        .from('house_members')
-        .select('role')
-        .eq('house_id', houseId)
-        .eq('user_id', currentUser.id)
-        .single();
+    final requesterRole = await _getMemberRole(houseId, currentUser.id);
 
-    if (requester['role'] != 'head') {
+    if (requesterRole != 'head') {
       throw Exception('Only the Head of House can transfer the role');
     }
 
@@ -260,5 +229,17 @@ class HouseService {
         .update({'role': 'head'})
         .eq('house_id', houseId)
         .eq('user_id', newHeadId);
+  }
+
+  Future<String> _getMemberRole(String houseId, String userId) async {
+    final response = await _supabase
+        .from('house_members')
+        .select('role')
+        .eq('house_id', houseId)
+        .eq('user_id', userId)
+        .maybeSingle();
+
+    if (response == null) throw Exception('Member not found in house');
+    return response['role'] as String;
   }
 }
